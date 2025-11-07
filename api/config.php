@@ -1,0 +1,2 @@
+<?php
+define("FRONTEND_ORIGIN", "http://localhost:3000");

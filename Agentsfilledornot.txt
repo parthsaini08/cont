@@ -1,0 +1,13 @@
+SELECT 
+    agent_name,
+    SUM(CASE WHEN updated_at IS NULL THEN 1 ELSE 0 END) AS total_unfilled_calls,
+    SUM(CASE WHEN updated_at IS NOT NULL THEN 1 ELSE 0 END) AS total_filled_calls,
+    COUNT(*) AS total_calls
+FROM ringcentral_calls
+WHERE direction = 'inbound'
+  AND queue_name IS NOT NULL
+  AND queue_name <> ''
+  AND start_time >= '2025-09-23'
+GROUP BY agent_name
+ORDER BY total_calls DESC;
+
