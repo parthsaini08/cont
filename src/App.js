@@ -17,7 +17,8 @@ import CallDashboard from "./components/CallDashboard";
 import OperationsExpensePage from "./components/operations/OperationsExpensePage";
 import AdminPanel from "./components/AdminDashboard";
 import MarketingCost from "./components/marketing/MarketingExpense";
-
+import MarketingExpenseTable from "./components/marketing/MarketingExpenseTable";
+import ReportsPage from "./components/marketing/MarketingDashboard";
 
 function App() {
   const [data, setData] = useState({ stats: {}, calls: [] });
@@ -138,6 +139,8 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/analytics" element={<CallDashboard />}/>
+        <Route path="/marketing-expense-table" element={<ReportsPage />}/>
+        <Route path="/reports" element={<ReportsPage />}/>
       </Routes>
     </Router>
   );

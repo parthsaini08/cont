@@ -76,7 +76,7 @@
     },
     {
         "id": 3364179015,
-        "name": "PA101",
+        "name": "SE_IN",
         "type": "Department"
     },
     {
@@ -96,7 +96,7 @@
     },
     {
         "id": 3366580015,
-        "name": "K2101_Buff",
+        "name": "VJ_001",
         "type": "Department"
     },
     {
@@ -126,7 +126,7 @@
     },
     {
         "id": 3375798015,
-        "name": "K2102_Buff",
+        "name": "VJ_002",
         "type": "Department"
     },
     {
@@ -201,12 +201,12 @@
     },
     {
         "id": 3464241015,
-        "name": "Elena Smith",
+        "name": "Elena Gilbert",
         "type": "User"
     },
     {
         "id": 3466626015,
-        "name": "Noah Miller",
+        "name": "Patrick Wilson",
         "type": "User"
     },
     {
@@ -236,7 +236,67 @@
     },
     {
         "id": 3484173015,
-        "name": "ANDL_ENGSP",
+        "name": "PU_SEO",
+        "type": "Department"
+    },
+    {
+        "id": 3490681015,
+        "name": "CA_Spanish1",
+        "type": "Department"
+    },
+    {
+        "id": 3490689015,
+        "name": "CA_Spanish2",
+        "type": "Department"
+    },
+    {
+        "id": 3490690015,
+        "name": "CA_English1",
+        "type": "Department"
+    },
+    {
+        "id": 3490691015,
+        "name": "CA_English 2",
+        "type": "Department"
+    },
+    {
+        "id": 3492280015,
+        "name": "VJ401",
+        "type": "Department"
+    },
+    {
+        "id": 3507105015,
+        "name": "VJ_801",
+        "type": "Department"
+    },
+    {
+        "id": 3507106015,
+        "name": "VJ_901",
+        "type": "Department"
+    },
+    {
+        "id": 3507107015,
+        "name": "VJ_701",
+        "type": "Department"
+    },
+    {
+        "id": 3507109015,
+        "name": "VJ_601",
+        "type": "Department"
+    },
+    {
+        "id": 3507112015,
+        "name": "VJ_501",
+        "type": "Department"
+    },
+    {
+        "id": 3507123015,
+        "name": "VJ_101",
+        "type": "Department"
+    },
+    {
+        "id": 3507124015,
+        "name": "VJ_201",
         "type": "Department"
     }
 ]

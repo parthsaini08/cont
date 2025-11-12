@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, DollarSign, PhoneCall, RefreshCcw, BarChart3} from "lucide-react";
+import { Users, DollarSign, PhoneCall, RefreshCcw, BarChart3,FileBarChart} from "lucide-react";
 
 const AdminPanel = () => {
 const navigate = useNavigate();
@@ -43,9 +43,16 @@ const cards = [
   {
     title: "Marketing Cost Management",
     desc: "Manage and monitor marketing spends by call queue or channel.",
-    icon: <BarChart3 size={30} />, // You can use `TrendingUp` or `PieChart` too
+    icon: <BarChart3 size={30} />,
     gradient: "from-indigo-500 to-sky-400",
     onClick: () => navigate("/marketingcost"),
+  },
+  {
+    title: "Marketing Expense Summary",
+    desc: "View summarized marketing cost and MCO reports by date range.",
+    icon: <FileBarChart size={30} />,
+    gradient: "from-teal-500 to-emerald-400",
+    onClick: () => navigate("/marketing-expense-table"), // ✅ new route
   },
   {
     title: "Call Analytics",

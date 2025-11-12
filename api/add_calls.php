@@ -40,6 +40,9 @@ $queue_name  = "REPEAT";
 $call_status = "Accepted";
 $direction   = "Inbound";
 
+// ✅ Generate 13-digit random session ID
+$session_id = random_int(1000000000000, 9999999999999);
+
 // ✅ Combine user-selected date with current GMT time (24-hour)
 $gmtTime = new DateTime("now", new DateTimeZone("GMT"));
 $currentGMT = $gmtTime->format("H:i:s");
@@ -48,10 +51,11 @@ $start_time = $date . " " . $currentGMT;
 try {
     $stmt = $pdo->prepare("
         INSERT INTO ringcentral_calls (
-            from_number, from_name, to_number, queue_name, call_log_status, start_time, direction, agent_name, agent_extension
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            session_id, from_number, from_name, to_number, queue_name, call_log_status, start_time, direction, agent_name, agent_extension
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     $stmt->execute([
+        $session_id,
         $from_number,
         $from_name,
         $to_number,
@@ -66,6 +70,7 @@ try {
     echo json_encode([
         "success" => true,
         "message" => "Call added successfully.",
+        "session_id" => $session_id,
         "id" => $pdo->lastInsertId()
     ]);
 } catch (PDOException $e) {
