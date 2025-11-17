@@ -48,7 +48,7 @@ const cards = [
     onClick: () => navigate("/marketingcost"),
   },
   {
-    title: "Marketing Expense Summary",
+    title: "Prodictivity Summary",
     desc: "View summarized marketing cost and MCO reports by date range.",
     icon: <FileBarChart size={30} />,
     gradient: "from-teal-500 to-emerald-400",

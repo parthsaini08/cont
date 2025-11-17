@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { BASE_URL } from "../../config";
-import { FileDown, DollarSign, PhoneCall, BarChart3, CheckCircle } from "lucide-react";
+import { FileDown, PhoneCall, BarChart3, CheckCircle, DollarSign, User } from "lucide-react";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { motion } from "framer-motion";
-import ExcelJS from "exceljs";
 
-const MarketingExpenseTable = ({ dateRange }) => {
+const AgentExpenseTable = ({ dateRange }) => {
   const [summaryData, setSummaryData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
   const [totals, setTotals] = useState({
     marketing_spent: 0,
     total_calls: 0,
@@ -16,11 +17,10 @@ const MarketingExpenseTable = ({ dateRange }) => {
     bookings: 0,
   });
 
-  // ---------- Sorting States ----------
+  // ⭐ Sorting states
   const [sortField, setSortField] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
 
-  // ---------- Fetch Data ----------
   useEffect(() => {
     if (!dateRange?.startDate || !dateRange?.endDate) return;
 
@@ -38,7 +38,7 @@ const MarketingExpenseTable = ({ dateRange }) => {
       setIsLoading(true);
       try {
         const res = await fetch(
-          `${BASE_URL}get_marketing_summary.php?startDate=${encodeURIComponent(
+          `${BASE_URL}get_marketing_summary_agentwise.php?startDate=${encodeURIComponent(
             startDateAdjusted
           )}&endDate=${encodeURIComponent(endDateAdjusted)}`,
           { credentials: "include" }
@@ -49,13 +49,13 @@ const MarketingExpenseTable = ({ dateRange }) => {
           const data = json.summary || [];
           setSummaryData(data);
 
-          const totalRow = data.find((r) => r.queue_name === "Total");
+          const totalRow = data.find((r) => r.agent_name === "Total");
           if (totalRow) setTotals(totalRow);
         } else {
           setSummaryData([]);
         }
       } catch (err) {
-        console.error("Failed to fetch marketing summary:", err);
+        console.error("Failed to fetch agent summary:", err);
         setSummaryData([]);
       } finally {
         setIsLoading(false);
@@ -65,34 +65,34 @@ const MarketingExpenseTable = ({ dateRange }) => {
     fetchSummary();
   }, [dateRange]);
 
-  // ---------- Excel Export ----------
+  // ---------------- Excel Export ----------------
   const exportToExcel = async () => {
   if (!summaryData.length) return alert("No data to export.");
 
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet("Marketing Summary");
+  const worksheet = workbook.addWorksheet("Agent Summary");
 
-  // ---------------- HEADER ----------------
+  // ---- HEADERS ----
   const headers = [
-    "Queue Name",
+    "Agent Name",
     "Marketing Spent",
     "Calls",
-    "Call Cost",
     "MCO",
     "Bookings",
     "Conversion (%)",
-    "Revenue Ratio"
+    "Revenue Ratio",
   ];
 
   worksheet.addRow(headers);
 
+  // Header styling
   const headerRow = worksheet.getRow(1);
   headerRow.eachCell((cell) => {
     cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
     cell.fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: "FF1F4E78" },
+      fgColor: { argb: "FF1F4E78" }, // dark blue
     };
     cell.alignment = { horizontal: "center", vertical: "middle" };
     cell.border = {
@@ -103,39 +103,30 @@ const MarketingExpenseTable = ({ dateRange }) => {
     };
   });
 
-  // ---------------- DATA ROWS ----------------
+  // ---- DATA ROWS ----
   summaryData.forEach((row) => {
-    const callCost =
-      row.total_calls > 0
-        ? row.marketing_spent / row.total_calls
-        : 0;
-
     const conversion =
       row.total_calls > 0
         ? ((row.bookings / row.total_calls) * 100).toFixed(2) + "%"
         : "0%";
 
-    const revenueRatio =
-      row.marketing_spent > 0
-        ? (row.MCO / row.marketing_spent).toFixed(2)
-        : "0.00";
-
     worksheet.addRow([
-      row.queue_name,
+      row.agent_name,
       row.marketing_spent,
       row.total_calls,
-      callCost,
       row.MCO,
       row.bookings,
       conversion,
-      revenueRatio
+      row.marketing_spent > 0
+        ? (row.MCO / row.marketing_spent).toFixed(2)
+        : "0.00",
     ]);
   });
 
-  // ---------------- CELL FORMATTING ----------------
+  // ---- APPLY FORMATS TO DATA ----
   worksheet.eachRow((row, rowIndex) => {
     row.eachCell((cell, colIndex) => {
-      // Borders for all cells
+      // Borders for each cell
       cell.border = {
         top: { style: "thin" },
         left: { style: "thin" },
@@ -143,16 +134,15 @@ const MarketingExpenseTable = ({ dateRange }) => {
         right: { style: "thin" },
       };
 
-      // Align numbers to the right (except first column)
+      // Right align numbers (except names)
       if (colIndex !== 1) {
         cell.alignment = { horizontal: "right" };
       }
 
-      // Currency formatting
-      if ([2, 4, 5].includes(colIndex)) {
-        // Marketing Spent = col 2  
-        // Call Cost = col 4  
-        // MCO = col 5  
+      // Currency Formatting
+      if (colIndex === 2 || colIndex === 4) {
+        // Marketing Spent = column 2
+        // MCO = column 4
         if (typeof cell.value === "number") {
           cell.numFmt = "$#,##0.00";
         }
@@ -160,50 +150,45 @@ const MarketingExpenseTable = ({ dateRange }) => {
     });
   });
 
-  // ---------------- TOTAL ROW (Yellow) ----------------
+  // ---- TOTAL ROW STYLING ----
   const lastRow = worksheet.getRow(worksheet.rowCount);
+  lastRow.eachCell((cell) => {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFFFFF00" }, // Yellow
+    };
+    cell.font = { bold: true };
+    cell.border = {
+      top: { style: "thin" },
+      left: { style: "thin" },
+      bottom: { style: "thin" },
+      right: { style: "thin" },
+    };
+    cell.alignment = { horizontal: "center" };
+  });
 
-  if (lastRow.getCell(1).value === "Total") {
-    lastRow.eachCell((cell) => {
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFFFFF00" }, // Yellow
-      };
-      cell.font = { bold: true };
-      cell.alignment = { horizontal: "center" };
-      cell.border = {
-        top: { style: "thin" },
-        left: { style: "thin" },
-        bottom: { style: "thin" },
-        right: { style: "thin" },
-      };
-    });
-  }
-
-  // ---------------- COLUMN WIDTHS ----------------
+  // ---- COLUMN WIDTHS ----
   worksheet.columns = [
-    { width: 18 }, // Queue Name
+    { width: 20 }, // Agent Name
     { width: 18 }, // Marketing Spent
     { width: 10 }, // Calls
-    { width: 12 }, // Call Cost
     { width: 12 }, // MCO
     { width: 10 }, // Bookings
     { width: 15 }, // Conversion
     { width: 15 }, // Revenue Ratio
   ];
 
-  // ---------------- SAVE FILE ----------------
+  // ---- SAVE FILE ----
   const buffer = await workbook.xlsx.writeBuffer();
   saveAs(
-    new Blob([buffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }),
-    `MarketingSummary_${new Date().toISOString().slice(0, 10)}.xlsx`
+    new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+    `AgentSummary_${new Date().toISOString().slice(0, 10)}.xlsx`
   );
 };
 
-  // ---------- Sort Handler ----------
+
+  // ---------------- Sorting Logic ----------------
   const handleSort = (field) => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -213,29 +198,32 @@ const MarketingExpenseTable = ({ dateRange }) => {
     }
   };
 
-  // ---------- SORTING (Total row stays last) ----------
   const sortedData = (() => {
-    const totalRow = summaryData.find((r) => r.queue_name === "Total");
-    const rest = summaryData.filter((r) => r.queue_name !== "Total");
+    const totalRow = summaryData.find((r) => r.agent_name === "Total");
+    const rest = summaryData.filter((r) => r.agent_name !== "Total");
+
+    const getValue = (row, field) => {
+      switch (field) {
+        case "conversion":
+          return row.total_calls > 0
+            ? (row.bookings / row.total_calls) * 100
+            : 0;
+
+        case "revenueRatio":
+          return row.marketing_spent > 0
+            ? row.MCO / row.marketing_spent
+            : 0;
+
+        default:
+          return Number(row[field]) || 0;
+      }
+    };
 
     const sorted = rest.sort((a, b) => {
       if (!sortField) return 0;
 
-      const getValue = (row) => {
-        if (sortField === "callCost")
-          return row.total_calls > 0 ? row.marketing_spent / row.total_calls : 0;
-
-        if (sortField === "conversion")
-          return row.total_calls > 0 ? (row.bookings / row.total_calls) * 100 : 0;
-
-        if (sortField === "revenueRatio")
-          return row.marketing_spent > 0 ? row.MCO / row.marketing_spent : 0;
-
-        return Number(row[sortField]) || 0;
-      };
-
-      const valA = getValue(a);
-      const valB = getValue(b);
+      const valA = getValue(a, sortField);
+      const valB = getValue(b, sortField);
 
       return sortOrder === "asc" ? valA - valB : valB - valA;
     });
@@ -243,29 +231,29 @@ const MarketingExpenseTable = ({ dateRange }) => {
     return totalRow ? [...sorted, totalRow] : sorted;
   })();
 
-  // ---------- Summary Cards ----------
+  // ---------------- Summary Cards ----------------
   const summaryCards = [
     {
       label: "Total Marketing Spend",
-      value: `$${totals.marketing_spent?.toFixed(2) || "0.00"}`,
+      value: `$${totals.marketing_spent?.toFixed(2)}`,
       icon: <DollarSign size={22} />,
       gradient: "from-green-600 to-emerald-800",
     },
     {
       label: "Total Calls",
-      value: totals.total_calls || 0,
+      value: totals.total_calls,
       icon: <PhoneCall size={22} />,
       gradient: "from-blue-600 to-indigo-700",
     },
     {
       label: "Total MCO",
-      value: `$${totals.MCO?.toFixed(2) || "0.00"}`,
+      value: `$${totals.MCO?.toFixed(2)}`,
       icon: <BarChart3 size={22} />,
       gradient: "from-cyan-600 to-sky-700",
     },
     {
       label: "Total Bookings",
-      value: totals.bookings || 0,
+      value: totals.bookings,
       icon: <CheckCircle size={22} />,
       gradient: "from-purple-600 to-pink-700",
     },
@@ -287,13 +275,10 @@ const MarketingExpenseTable = ({ dateRange }) => {
               className={`flex flex-col justify-between p-4 rounded-2xl border border-[#264766] shadow-lg bg-gradient-to-br ${card.gradient} bg-opacity-20 hover:scale-[1.02] transition-transform duration-300`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-200">
-                  {card.label}
-                </span>
-                <div className="p-2 rounded-lg bg-white/10 text-white">
-                  {card.icon}
-                </div>
+                <span className="text-sm font-medium text-gray-200">{card.label}</span>
+                <div className="p-2 rounded-lg bg-white/10 text-white">{card.icon}</div>
               </div>
+
               <div className="text-2xl font-bold mt-2 bg-white/90 bg-clip-text text-transparent">
                 {card.value}
               </div>
@@ -302,10 +287,10 @@ const MarketingExpenseTable = ({ dateRange }) => {
         </motion.div>
       )}
 
-      {/* Title + Export Button */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-3 sm:px-4 py-3 border-b border-gray-700 gap-3">
         <h2 className="font-semibold text-base sm:text-lg text-white">
-          Queue-wise Productivity Summary
+          Agent-wise Productivity Summary
         </h2>
 
         <button
@@ -316,25 +301,24 @@ const MarketingExpenseTable = ({ dateRange }) => {
         </button>
       </div>
 
-      {/* Table */}
+      {/* ==================== TABLE ==================== */}
       {isLoading ? (
         <div className="text-gray-300 p-4">Loading summary...</div>
       ) : summaryData.length === 0 ? (
         <div className="text-gray-400 p-4 text-sm text-center">
-          No Productivity summary available.
+          No agent summary available.
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs sm:text-sm text-gray-300 min-w-[850px]">
+          <table className="w-full min-w-[850px] text-xs sm:text-sm text-gray-300 border-collapse">
             <thead>
-              <tr className="bg-[#1e293b] text-gray-300 uppercase text-[10px] sm:text-xs tracking-wide">
+              <tr className="bg-[#1e293b] uppercase text-[10px] sm:text-xs tracking-wide text-gray-300">
 
-                {/* Sortable headers */}
+                {/* SORTABLE HEADERS */}
                 {[
-                  { field: "queue_name", label: "Queue" },
+                  { field: "agent_name", label: "Agent Name" },
                   { field: "marketing_spent", label: "Marketing Spent" },
                   { field: "total_calls", label: "Calls" },
-                  { field: "callCost", label: "Call Cost" },
                   { field: "MCO", label: "MCO" },
                   { field: "bookings", label: "Bookings" },
                   { field: "conversion", label: "Conversion" },
@@ -353,17 +337,13 @@ const MarketingExpenseTable = ({ dateRange }) => {
                     )}
                   </th>
                 ))}
+
               </tr>
             </thead>
 
             <tbody>
               {sortedData.map((row, index) => {
-                const isTotal = row.queue_name === "Total";
-
-                const callCost =
-                  row.total_calls > 0
-                    ? (row.marketing_spent / row.total_calls).toFixed(2)
-                    : "0.00";
+                const isTotal = row.agent_name === "Total";
 
                 const conversion =
                   row.total_calls > 0
@@ -385,29 +365,33 @@ const MarketingExpenseTable = ({ dateRange }) => {
                     }`}
                   >
                     <td className="p-2 sm:p-3 text-center border-r border-gray-700">
-                      {row.queue_name || "-"}
+                      {row.agent_name || "-"}
                     </td>
+
                     <td className="p-2 sm:p-3 text-center border-r border-gray-700">
-                      $ {row.marketing_spent?.toFixed(2) || "0.00"}
+                      ${row.marketing_spent?.toFixed(2)}
                     </td>
+
                     <td className="p-2 sm:p-3 text-center border-r border-gray-700">
                       {row.total_calls}
                     </td>
+
                     <td className="p-2 sm:p-3 text-center border-r border-gray-700">
-                      {callCost}
+                      ${row.MCO?.toFixed(2)}
                     </td>
+
                     <td className="p-2 sm:p-3 text-center border-r border-gray-700">
-                      $ {row.MCO?.toFixed(2) || "0.00"}
+                      {row.bookings}
                     </td>
-                    <td className="p-2 sm:p-3 text-center border-r border-gray-700">
-                      {row.bookings || 0}
-                    </td>
+
                     <td className="p-2 sm:p-3 text-center border-r border-gray-700">
                       {conversion}
                     </td>
+
                     <td className="p-2 sm:p-3 text-center">
                       {revenueRatio}
                     </td>
+
                   </tr>
                 );
               })}
@@ -416,8 +400,9 @@ const MarketingExpenseTable = ({ dateRange }) => {
           </table>
         </div>
       )}
+
     </div>
   );
 };
 
-export default MarketingExpenseTable;
+export default AgentExpenseTable;
