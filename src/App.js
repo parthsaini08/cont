@@ -19,6 +19,7 @@ import AdminPanel from "./components/AdminDashboard";
 import MarketingCost from "./components/marketing/MarketingExpense";
 import MarketingExpenseTable from "./components/marketing/MarketingExpenseTable";
 import ReportsPage from "./components/marketing/MarketingDashboard";
+import AgentPerformanceDashboard from "./components/AgentPerformanceDashboard";
 
 function App() {
   const [data, setData] = useState({ stats: {}, calls: [] });
@@ -113,6 +114,19 @@ function App() {
             />
           }
         />
+        <Route
+          path="/agentdash" 
+          element={
+            <ProtectedRoute
+              allowedRole="user"
+              element={
+               <div>
+                <DashboardHeader/>  
+                <AgentPerformanceDashboard />
+                </div>}
+            />
+          }
+        />
         <Route path="/call-logs" element={
             <div className="flex flex-col min-h-screen bg-primary text-gray-100">
                 <DashboardHeader />
@@ -121,7 +135,7 @@ function App() {
               <main className="flex-1 p-6">
                 {/* <h1 className="text-2xl font-bold text-secondary">📊 Call Dashboard</h1> */}
                 <div className="">
-                  <TimelineChart />
+                  <AgentPerformanceDashboard />
                 </div>
                 <div>
                   
