@@ -20,6 +20,7 @@ import MarketingCost from "./components/marketing/MarketingExpense";
 import MarketingExpenseTable from "./components/marketing/MarketingExpenseTable";
 import ReportsPage from "./components/marketing/MarketingDashboard";
 import AgentPerformanceDashboard from "./components/AgentPerformanceDashboard";
+import ChargebackTracker from "./components/chargeback/ChargebackTracker";
 
 function App() {
   const [data, setData] = useState({ stats: {}, calls: [] });
@@ -152,6 +153,8 @@ function App() {
         />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/chargeback" element={
+          <div><DashboardHeader /><ChargebackTracker /></div>} />
         <Route path="/analytics" element={<CallDashboard />}/>
         <Route path="/marketing-expense-table" element={<ReportsPage />}/>
         <Route path="/reports" element={<ReportsPage />}/>

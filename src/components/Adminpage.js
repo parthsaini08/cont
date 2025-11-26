@@ -53,10 +53,13 @@ const AdminPage = () => {
         role: "user",
         agent_extension: "",
         lead_extension: "",
+        revenue_generating: "",
+        active_from: "",
+        salary: "",
       });
     } else alert(data.message);
   };
-
+  //HandleDelete for user according to id
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this user?")) return;
     const res = await fetch(`${BASE_URL}delete_user.php`, {
@@ -155,6 +158,31 @@ const AdminPage = () => {
       <option value="user">User</option>
     </select>
 
+    {/* Revenue Generating */}
+    <select
+      value={form.revenue_generating}
+      onChange={(e) => setForm({ ...form, revenue_generating: e.target.value })}
+      className="px-3 py-2 rounded-md text-gray-900 flex-1"
+    >
+      <option value="no">Revenue: No</option>
+      <option value="yes">Revenue: Yes</option>
+    </select>
+
+    {/* Active From Date */}
+    <input
+      type="date"
+      value={form.active_from}
+      onChange={(e) => setForm({ ...form, active_from: e.target.value })}
+      className="px-3 py-2 rounded-md text-gray-900 flex-1"
+    />
+    <input
+      placeholder="Salary"
+      value={form.salary}
+      onChange={(e) => setForm({ ...form, salary: e.target.value })}
+      className="px-3 py-2 rounded-md text-gray-900 flex-1"
+    />
+
+
     <button
       onClick={handleAdd}
       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md font-semibold transition w-full md:w-auto"
@@ -174,6 +202,9 @@ const AdminPage = () => {
           <th className="px-3 py-2 text-sm md:text-base">Role</th>
           <th className="px-3 py-2 text-sm md:text-base">Agent</th>
           <th className="px-3 py-2 text-sm md:text-base">Lead</th>
+          <th className="px-3 py-2 text-sm md:text-base">Revenue</th>
+          <th className="px-3 py-2 text-sm md:text-base">Active From</th>
+          <th className="px-3 py-2 text-sm md:text-base">Salary</th>
           <th className="px-3 py-2 text-sm md:text-base">Actions</th>
         </tr>
       </thead>
@@ -273,6 +304,53 @@ const AdminPage = () => {
                 u.lead_extension
               )}
             </td>
+
+            <td className="px-3 py-2">
+              {editId === u.id ? (
+                <select
+                  value={editForm.revenue_generating}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, revenue_generating: e.target.value })
+                  }
+                  className="px-2 py-1 rounded-md text-gray-900 w-full"
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              ) : (
+                u.revenue_generating === "yes" ? "Yes" : "No"
+              )}
+            </td>
+
+            <td className="px-3 py-2">
+            {editId === u.id ? (
+              <input
+                type="date"
+                value={editForm.active_from}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, active_from: e.target.value })
+                }
+                className="px-2 py-1 rounded-md text-gray-900 w-full"
+              />
+            ) : (
+              u.active_from
+            )}
+          </td>
+            
+           <td className="px-3 py-2">
+              {editId === u.id ? (
+                <input
+                  value={editForm.salary}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, salary: e.target.value })
+                  }
+                  className="px-2 py-1 rounded-md text-gray-900 w-full"
+                />
+              ) : (
+                u.salary
+              )}
+            </td>
+
 
             {/* Actions */}
             <td className="px-3 py-2 space-x-1 md:space-x-2 flex flex-wrap md:flex-nowrap">

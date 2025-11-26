@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, DollarSign, PhoneCall, RefreshCcw, BarChart3,FileBarChart} from "lucide-react";
+import { Users, DollarSign, PhoneCall, RefreshCcw, BarChart3,FileBarChart,AlertTriangle} from "lucide-react";
 
 const AdminPanel = () => {
 const navigate = useNavigate();
@@ -68,6 +68,14 @@ const cards = [
     gradient: "from-orange-500 to-yellow-400",
     onClick: handleUpdateUsers,
   },
+  {
+  title: "Chargeback Tracker",
+  desc: "Track chargebacks, refunds, and adjust agent MCO with ease.",
+  icon: <AlertTriangle size={30} />   ,   // or <AlertTriangle size={30} /> if you prefer
+  gradient: "from-red-500 to-rose-400",
+  onClick: () => navigate("/chargeback"),
+},
+
 ];
 
 

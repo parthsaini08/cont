@@ -18,7 +18,7 @@ $user = $stmt->fetch(PDO::FETCH_ASSOC);
 if(!$user || $user['role']!=='admin') exit(json_encode(['status'=>'error','message'=>'Not authorized']));
 
 // Fetch all users
-$stmt = $pdo->query("SELECT id, name, email, role, agent_extension, lead_extension FROM users ORDER BY id ASC");
+$stmt = $pdo->query("SELECT id, name, email, role, agent_extension, lead_extension, revenue_generating, active_from, salary FROM users ORDER BY id ASC");
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 echo json_encode(['status'=>'success','users'=>$users]);

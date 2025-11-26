@@ -60,7 +60,7 @@ const [dateRange, setDateRange] = useState({
     <div className="min-h-screen bg-gradient-to-b from-[#020617] via-[#0B1E34] to-[#132F4C] text-white">
       <DashboardHeader />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
+      <main className=" mx-auto px-4 sm:px-8 py-8">
         {/* ✅ Header */}
         <motion.div
           initial={{ opacity: 0, y: -15 }}
