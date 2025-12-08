@@ -1,8 +1,7 @@
 import React, { useMemo } from "react";
-import { Trash2 } from "lucide-react";
+import { Copy, Trash2 } from "lucide-react";
 
 const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
-  // Filter months globally
   const filterMonths =
     selectedMonths.length > 0
       ? selectedMonths
@@ -21,7 +20,7 @@ const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
           "Dec",
         ];
 
-  // ✅ Calculate month totals and grand total
+  // Calculate month totals + grand total
   const { monthTotals, grandTotal } = useMemo(() => {
     const totals = {};
     let overall = 0;
@@ -37,13 +36,25 @@ const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
     return { monthTotals: totals, grandTotal: overall };
   }, [group.expenses, filterMonths]);
 
-  // Expense editing helpers
   const handleExpenseChange = (expenseId, month, value) => {
     const updatedExpenses = group.expenses.map((e) =>
       e.id === expenseId
         ? { ...e, months: { ...e.months, [month]: value } }
         : e
     );
+
+    onUpdate({ ...group, expenses: updatedExpenses });
+  };
+
+  const copyEntireMonth = (fromMonth, toMonth) => {
+    const updatedExpenses = group.expenses.map((expense) => ({
+      ...expense,
+      months: {
+        ...expense.months,
+        [toMonth]: expense.months[fromMonth],
+      },
+    }));
+
     onUpdate({ ...group, expenses: updatedExpenses });
   };
 
@@ -52,22 +63,10 @@ const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
       id: Date.now(),
       name: `Expense-${group.expenses.length + 1}`,
       months: Object.fromEntries(
-        [
-          "Jan",
-          "Feb",
-          "Mar",
-          "Apr",
-          "May",
-          "Jun",
-          "Jul",
-          "Aug",
-          "Sep",
-          "Oct",
-          "Nov",
-          "Dec",
-        ].map((m) => [m, 0])
+        filterMonths.map((m) => [m, 0])
       ),
     };
+
     onUpdate({ ...group, expenses: [...group.expenses, newExpense] });
   };
 
@@ -80,23 +79,20 @@ const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
     }
   };
 
-  const handleGroupNameChange = (e) => {
-    onUpdate({ ...group, name: e.target.value });
-  };
-
   return (
     <div className="bg-gray-800 rounded-lg p-5 shadow-lg border border-gray-700">
-      {/* Header with group name + delete */}
+      {/* Group Title */}
       <div className="flex justify-between items-center mb-5">
         <input
           type="text"
           value={group.name}
-          onChange={handleGroupNameChange}
-          className="text-xl font-semibold bg-transparent border-b border-gray-600 focus:outline-none focus:border-green-400 text-white"
+          onChange={(e) => onUpdate({ ...group, name: e.target.value })}
+          className="text-xl font-semibold bg-transparent border-b border-gray-600 focus:border-green-400 text-white outline-none"
         />
+
         <button
           onClick={() => onDelete(group.id)}
-          className="text-red-500 hover:text-red-400 transition"
+          className="text-red-500 hover:text-red-400"
         >
           <Trash2 size={18} />
         </button>
@@ -106,7 +102,7 @@ const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-gray-200 border-collapse">
           <thead>
-            {/* ✅ Totals Row (Top of Table) */}
+            {/* TOTALS ROW */}
             <tr className="bg-gray-900 text-yellow-400 font-bold text-center">
               <th className="p-2 border border-gray-700 text-left">TOTAL</th>
               {filterMonths.map((m) => (
@@ -120,14 +116,37 @@ const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
               <th className="p-2 border border-gray-700"></th>
             </tr>
 
-            {/* Column Headers */}
+            {/* COLUMN HEADERS WITH COPY BUTTONS */}
             <tr className="bg-gray-700 text-left">
-              <th className="p-2 border border-gray-600 w-1/4">Expense Name</th>
-              {filterMonths.map((m) => (
-                <th key={m} className="p-2 border border-gray-600 text-center">
-                  {m}
-                </th>
-              ))}
+              <th className="p-2 border border-gray-600 w-1/4">
+                Expense Name
+              </th>
+
+              {filterMonths.map((month, idx) => {
+                const nextMonth = filterMonths[idx + 1]; // determine next month
+
+                return (
+                  <th
+                    key={month}
+                    className="p-2 border border-gray-600 text-center"
+                  >
+                    <div className="flex flex-col items-center">
+                      <span>{month}</span>
+
+                      {/* COPY THIS MONTH → NEXT MONTH */}
+                      {nextMonth && (
+                        <button
+                          onClick={() => copyEntireMonth(month, nextMonth)}
+                          className="mt-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 transition"
+                        >
+                          <Copy size={8}/>
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
+
               <th className="p-2 border border-gray-600 text-center">Total</th>
               <th className="p-2 border border-gray-600"></th>
             </tr>
@@ -135,15 +154,17 @@ const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
 
           <tbody>
             {group.expenses.map((expense) => {
-              const total = Object.entries(expense.months || {})
-                .filter(([month]) => filterMonths.includes(month))
-                .reduce((sum, [, val]) => sum + Number(val || 0), 0);
+              const total = filterMonths.reduce(
+                (sum, m) => sum + Number(expense.months[m] || 0),
+                0
+              );
 
               return (
                 <tr
                   key={expense.id}
                   className="hover:bg-gray-700 transition text-center"
                 >
+                  {/* Expense Name */}
                   <td className="p-2 border border-gray-700 text-left">
                     <input
                       type="text"
@@ -162,6 +183,7 @@ const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
                     />
                   </td>
 
+                  {/* Month Value Inputs */}
                   {filterMonths.map((month) => (
                     <td key={month} className="p-2 border border-gray-700">
                       <input
@@ -179,9 +201,12 @@ const ExpenseGroup = ({ group, onUpdate, onDelete, selectedMonths }) => {
                     </td>
                   ))}
 
+                  {/* Row Total */}
                   <td className="p-2 border border-gray-700 font-semibold text-green-400">
                     {total}
                   </td>
+
+                  {/* Delete Row */}
                   <td className="p-2 border border-gray-700 text-center">
                     <button
                       onClick={() => handleDeleteExpense(expense.id)}

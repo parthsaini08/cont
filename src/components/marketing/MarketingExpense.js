@@ -1,262 +1,241 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { BASE_URL } from "../../config";
-import { ChevronDown, ChevronUp, CalendarDays } from "lucide-react";
 
 const MarketingCost = () => {
-  const [selectedDate, setSelectedDate] = useState("");
-  const [costs, setCosts] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [daysInMonth, setDaysInMonth] = useState(30);
   const [queueNames, setQueueNames] = useState([]);
-  const [selectedQueues, setSelectedQueues] = useState([]);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  
-  // ✅ Set default date (US/New York)
+  const [costMatrix, setCostMatrix] = useState({});
+  const [selectedQueue, setSelectedQueue] = useState([]);
+  const [changedRows, setChangedRows] = useState([]);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Get days in selected month
   useEffect(() => {
-  const getDateInTimeZone = (timeZone) => {
-    const dtf = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-    // parts approach avoids string parsing issues
-    const parts = dtf.formatToParts(new Date());
-    const map = {};
-    for (const p of parts) map[p.type] = p.value;
-    // map: { month: "09", day: "03", year: "2025", ... }
-    return `${map.year}-${map.month}-${map.day}`; // ISO yyyy-mm-dd
-  };
+    setDaysInMonth(new Date(year, month, 0).getDate());
+  }, [month, year]);
 
-  const usIsoDate = getDateInTimeZone('America/New_York'); // choose US timezone you want
-  setSelectedDate(usIsoDate);
-  fetchCosts(usIsoDate);
-}, []);
-
-
-  // ✅ Fetch queues once
-  // Go with useEffect to fetch call queues on component mount
+  // Fetch queues
   useEffect(() => {
     const fetchQueues = async () => {
       try {
         const res = await fetch(`${BASE_URL}get_call_queues.php`);
         const data = await res.json();
-        if (data.status === "success" && Array.isArray(data.queues)) {
+        if (data.status === "success") {
           setQueueNames(data.queues);
-        } else {
-          setQueueNames([]);
         }
       } catch (err) {
-        console.error("Error fetching call queues:", err);
-        setQueueNames([]);
+        console.error("Queue fetch error:", err);
       }
     };
     fetchQueues();
   }, []);
 
-  // ✅ Fetch costs
-  const fetchCosts = async (date) => {
+  // Fetch monthly marketing costs
+  const fetchMonthlyCosts = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}get_marketing_costs.php`, {
+      const res = await fetch(`${BASE_URL}get_monthly_costs.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date }),
+        body: JSON.stringify({ month, year }),
       });
+
       const data = await res.json();
-      if (data.success && data.costs) {
-        const costMap = {};
-        data.costs.forEach((item) => {
-          costMap[item.queue_name] = item.amount;
+
+      let updated = {};
+      queueNames.forEach((queue) => {
+        updated[queue] = {};
+        for (let day = 1; day <= daysInMonth; day++) {
+          updated[queue][day] = "";
+        }
+      });
+
+      if (data.success) {
+        data.costs.forEach((row) => {
+          updated[row.queue_name][row.day] = row.amount;
         });
-        setCosts(costMap);
-      } else {
-        setCosts({});
       }
+
+      setCostMatrix(updated);
+      setChangedRows([]);
     } catch (err) {
-      console.error("Error fetching costs:", err);
-    } finally {
-      setIsLoading(false);
+      console.error("Month fetch failed:", err);
     }
+    setIsLoading(false);
   };
 
-  const handleUpdateQueues = async () => {
-  try {
-    const response = await fetch("https://gettrip4me.com/test-api/update_queues.php", {
-      method: "GET",
+  useEffect(() => {
+    if (queueNames.length > 0) fetchMonthlyCosts();
+  }, [month, year, queueNames]);
+
+  // Track changed cells only
+  const handleCostChange = (queue, day, value) => {
+    value = value === "" ? "" : Number(value);
+
+    setCostMatrix((prev) => ({
+      ...prev,
+      [queue]: { ...prev[queue], [day]: value },
+    }));
+
+    setChangedRows((prev) => {
+      const updatedEntry = { queue_name: queue, day, month, year, amount: value };
+
+      const exists = prev.find((r) => r.queue_name === queue && r.day === day);
+      if (exists) {
+        return prev.map((r) => (r.queue_name === queue && r.day === day ? updatedEntry : r));
+      }
+      return [...prev, updatedEntry];
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status}`);
-    }
-
-    const result = await response.text();
-    alert(result || "✅ Queues updated successfully!");
-  } catch (error) {
-    console.log(error.message);
-    alert("❌ Error updating queues: " + error.message);
-  }
-};
-
-  const handleDateChange = (e) => {
-    const date = e.target.value;
-    setSelectedDate(date);
-    if (date) fetchCosts(date);
   };
 
-  const handleAmountChange = (queue, value) => {
-    setCosts((prev) => ({ ...prev, [queue]: value }));
-  };
+  // Daily totals
+  const dayTotals = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    return (selectedQueue.length ? selectedQueue : queueNames).reduce((sum, queue) => {
+      const value = parseFloat(costMatrix?.[queue]?.[day] || 0);
+      return sum + value;
+    }, 0);
+  });
 
+  // Grand Total of selected queues
+  const grandTotal = (selectedQueue.length ? selectedQueue : queueNames).reduce(
+    (queueSum, queue) => {
+      const days = costMatrix?.[queue] || {};
+      const sumPerQueue = Object.values(days).reduce(
+        (daySum, val) => daySum + (parseFloat(val) || 0),
+        0
+      );
+      return queueSum + sumPerQueue;
+    },
+    0
+  );
+
+  // Save changed rows
   const handleSave = async () => {
-    if (!selectedDate) {
-      alert("Please select a date first.");
+    if (changedRows.length === 0) {
+      alert("Nothing to save.");
       return;
     }
 
-    const payload = {
-      date: selectedDate,
-      costs: queueNames.map((queue) => ({
-        queue_name: queue,
-        amount: costs[queue] || 0,
-      })),
-    };
-
     try {
-      const res = await fetch(`${BASE_URL}save_marketing_cost.php`, {
+      const res = await fetch(`${BASE_URL}save_monthly_cost_matrix.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ data: changedRows }),
       });
-      const data = await res.json();
-      if (data.success) alert("Marketing cost saved successfully!");
-      else alert("Error saving data: " + (data.error || "Unknown error"));
+
+      const result = await res.json();
+
+      if (result.success) {
+        alert("Saved successfully!");
+        setChangedRows([]);
+      } else {
+        alert("Save error: " + result.error);
+      }
     } catch (err) {
-      console.error("Save failed:", err);
-      alert("Save failed. Check console for details.");
+      alert("Save failed.");
+      console.error(err);
     }
   };
 
-  const toggleQueue = (queue) => {
-    setSelectedQueues((prev) =>
-      prev.includes(queue)
-        ? prev.filter((q) => q !== queue)
-        : [...prev, queue]
-    );
+  // Update Queues Button
+  const handleUpdateQueues = async () => {
+    try {
+      const res = await fetch("https://gettrip4me.com/test-api/update_queues.php");
+      const result = await res.text();
+      alert(result || "Queues updated successfully!");
+    } catch (err) {
+      alert("Error updating queues: " + err.message);
+    }
   };
-
-  const clearFilter = () => {
-    setSelectedQueues([]);
-    setSearch("");
-  };
-
-  const filteredQueues = selectedQueues.length
-    ? queueNames.filter((q) => selectedQueues.includes(q))
-    : queueNames;
-
-  const filteredDropdownQueues = queueNames.filter((q) =>
-    q.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // ✅ Compute total and average
-  const { totalCost, avgCost } = useMemo(() => {
-    const amounts = Object.values(costs).map((val) => parseFloat(val) || 0);
-    const total = amounts.reduce((sum, val) => sum + val, 0);
-    const avg = amounts.length ? total / amounts.length : 0;
-    return { totalCost: total, avgCost: avg };
-  }, [costs]);
 
   return (
-    <div className="p-6 bg-[#1d2738] w-full min-h-screen text-gray-200">
-      <div className="flex items-center justify-between mb-6">
-      <h1 className="text-4xl font-extrabold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600">
-        Marketing Cost Management
-      </h1>
-      <button className="p-2 rounded-lg font-bold bg-green-700 hover:bg-green-600" onClick={handleUpdateQueues}>Update Queues</button>
-</div>
-      {/* ✅ Summary Block */}
-      <div className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 p-[1px] rounded-2xl mb-6 shadow-lg">
-        <div className="bg-[#0f172a] rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-100">Total Marketing Cost</h2>
-            <p className="text-3xl font-extrabold text-cyan-400 mt-1">
-              ${totalCost.toLocaleString()}
-            </p>
-           
-          </div>
-          <div className="flex items-center gap-3 mt-4 sm:mt-0">
-            <CalendarDays size={40} className="text-cyan-400" />
-            <div>
-              <p className="text-sm text-gray-400">Selected Date</p>
-              <p className="text-base font-medium text-white">
-                {selectedDate ? selectedDate : "Not selected"}
-              </p>
-            </div>
-          </div>
-        </div>
+    <div className="p-6 bg-[#1d2738] min-h-screen text-gray-200">
+      <h1 className="text-3xl font-bold mb-6 text-cyan-400">Marketing Cost Management</h1>
+
+      <div className="mb-6 p-4 bg-[#0f172a] border border-gray-700 rounded-lg text-lg font-bold text-cyan-400">
+        Total Marketing Cost for {new Date(year, month - 1).toLocaleString("en", { month: "long" })}{" "}
+        {year}:  
+        <span className="text-white ml-2">${grandTotal.toLocaleString()}</span>
       </div>
 
-      {/* ✅ Filters Section */}
-      <div className="bg-[#0f172a] p-4 rounded-lg border border-gray-700 mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <label className="block mb-2 text-sm">Select Date:</label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={handleDateChange}
-            className="p-2 rounded bg-[#1e293b] text-gray-200 border border-gray-600 focus:border-cyan-500 focus:ring focus:ring-cyan-500/20"
-          />
-        </div>
+      {/* Top Bar */}
+      <div className="flex items-center gap-4 mb-6">
 
-        {/* Queue Filter */}
-        <div className="relative w-full sm:w-1/2">
+        {/* Month */}
+        <select
+          value={month}
+          onChange={(e) => setMonth(parseInt(e.target.value))}
+          className="p-2 rounded bg-[#0f172a] border border-gray-600"
+        >
+          {[...Array(12)].map((_, i) => (
+            <option value={i + 1} key={i + 1}>
+              {new Date(0, i).toLocaleString("en", { month: "long" })}
+            </option>
+          ))}
+        </select>
+
+        {/* Year */}
+        <select
+          value={year}
+          onChange={(e) => setYear(parseInt(e.target.value))}
+          className="p-2 rounded bg-[#0f172a] border border-gray-600"
+        >
+          {[2025, 2026, 2027, 2028, 2029, 2030].map((y) => (
+            <option key={y}>{y}</option>
+          ))}
+        </select>
+
+        {/* Update Queues */}
+        <button
+          onClick={handleUpdateQueues}
+          className="p-2 rounded bg-green-700 hover:bg-green-600 text-white font-semibold"
+        >
+          Update Queues
+        </button>
+
+        {/* Multi Select */}
+        <div className="relative ml-auto w-56">
           <button
-            onClick={() => setFilterOpen((p) => !p)}
-            className="w-full flex justify-between items-center px-3 py-2 bg-[#1e293b] border border-gray-600 rounded text-sm text-gray-300 hover:border-cyan-500 transition"
+            onClick={() => setIsQueueOpen((prev) => !prev)}
+            className="w-full bg-[#0f172a] border border-gray-600 text-left px-3 py-2 rounded-lg"
           >
-            {selectedQueues.length > 0
-              ? `${selectedQueues.length} Queues Selected`
-              : "Filter Queues"}
-            {filterOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {selectedQueue.length === 0
+              ? "Select Queues"
+              : `${selectedQueue.length} Selected`}
           </button>
 
-          {filterOpen && (
-            <div className="absolute z-10 w-full mt-2 bg-[#0f172a] border border-gray-700 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-              <div className="p-2">
-                <input
-                  type="text"
-                  placeholder="Search queues..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full p-2 mb-2 rounded bg-[#1e293b] text-gray-200 border border-gray-600 text-sm"
-                />
-                {filteredDropdownQueues.length === 0 ? (
-                  <p className="text-gray-400 text-center py-2 text-sm">
-                    No queues found
-                  </p>
-                ) : (
-                  filteredDropdownQueues.map((queue, i) => (
-                    <label
-                      key={i}
-                      className="flex items-center gap-2 px-2 py-1 hover:bg-[#1e293b] rounded cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedQueues.includes(queue)}
-                        onChange={() => toggleQueue(queue)}
-                        className="accent-[#2563eb]"
-                      />
-                      <span className="text-sm">{queue}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-              {selectedQueues.length > 0 && (
+          {isQueueOpen && (
+            <div className="absolute mt-2 w-full bg-[#0f172a] border border-gray-700 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50">
+              {queueNames.map((q) => {
+                const checked = selectedQueue.includes(q);
+                return (
+                  <div
+                    key={q}
+                    className="px-3 py-2 flex items-center gap-2 hover:bg-[#1e293b] cursor-pointer"
+                    onClick={() =>
+                      setSelectedQueue((prev) =>
+                        prev.includes(q)
+                          ? prev.filter((item) => item !== q)
+                          : [...prev, q]
+                      )
+                    }
+                  >
+                    <input type="checkbox" checked={checked} readOnly className="accent-cyan-500" />
+                    <span>{q}</span>
+                  </div>
+                );
+              })}
+
+              {selectedQueue.length > 0 && (
                 <button
-                  onClick={clearFilter}
-                  className="w-full py-2 text-sm text-[#f87171] hover:bg-[#1e293b]"
+                  className="w-full py-2 text-red-400 hover:bg-[#1e293b] text-sm"
+                  onClick={() => setSelectedQueue([])}
                 >
-                  Clear Filter
+                  Clear Selection
                 </button>
               )}
             </div>
@@ -264,46 +243,100 @@ const MarketingCost = () => {
         </div>
       </div>
 
-      {/* ✅ Table */}
-      {filteredQueues.length > 0 && (
-        <div className="bg-[#0f172a] rounded-lg border border-gray-700 overflow-hidden">
-          <div className="max-h-[65vh] overflow-y-auto px-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3">
-              {filteredQueues.map((queue, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between bg-[#1e293b] border border-gray-700 p-3 rounded-lg hover:bg-[#243045] transition"
-                >
-                  <span className="text-sm font-medium text-gray-100 truncate">
-                    {queue}
-                  </span>
-                  <input
-                    type="number"
-                    value={costs[queue] || ""}
-                    onChange={(e) => handleAmountChange(queue, e.target.value)}
-                    className="w-28 p-1 bg-[#0f172a] border border-gray-600 rounded text-gray-200 text-right text-sm"
-                    placeholder="0"
-                  />
-                </div>
+      {/* Matrix Table */}
+      <div className="overflow-auto border border-gray-700 rounded-lg">
+        <table className="min-w-max w-full text-sm">
+          <thead className="sticky top-0 bg-[#0f172a] z-40">
+            <tr>
+              {/* LEFT FIXED COLUMN */}
+              <th className="p-3 border border-gray-600 text-left sticky left-0 bg-[#0f172a] z-30">
+                Queue
+              </th>
+
+              {[...Array(daysInMonth)].map((_, i) => (
+                <th key={i} className="p-2 border border-gray-700 text-center">
+                  {i + 1}
+                </th>
               ))}
-            </div>
-          </div>
 
-          {/* Sticky Save Bar */}
-          <div className="p-4 border-t border-gray-700 bg-[#1e293b] sticky bottom-0 flex justify-end">
-            <button
-              onClick={handleSave}
-              className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white px-5 py-2 rounded-lg font-semibold transition"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      )}
+              {/* RIGHT FIXED COLUMN TITLE */}
+              <th className="p-3 border border-gray-700 sticky right-0 bg-[#0f172a] z-30 text-center">
+                Total
+              </th>
+            </tr>
+          </thead>
 
-      {isLoading && (
-        <div className="text-gray-400 mt-4">Fetching data for selected date...</div>
-      )}
+          <tbody>
+            {(selectedQueue.length ? selectedQueue : queueNames).sort().map((queue) => {
+              const rowTotal = Object.values(costMatrix?.[queue] || {}).reduce(
+                (sum, v) => sum + (parseFloat(v) || 0),
+                0
+              );
+
+              return (
+                <tr key={queue} className="hover:bg-[#1e293b]">
+                  {/* LEFT FIXED NAME CELL */}
+                  <td className="p-3 border border-gray-700 sticky left-0 bg-[#1d2738] z-20 font-medium">
+                    {queue}
+                  </td>
+
+                  {/* DAY INPUT CELLS */}
+                  {[...Array(daysInMonth)].map((_, i) => {
+                    const day = i + 1;
+                    return (
+                      <td key={day} className="border border-gray-700 p-1">
+                        <input
+                          type="number"
+                          className="w-20 p-1 text-center bg-[#0f172a] border border-gray-600 rounded text-gray-200"
+                          value={costMatrix?.[queue]?.[day] || ""}
+                          onChange={(e) =>
+                            handleCostChange(queue, day, e.target.value)
+                          }
+                        />
+                      </td>
+                    );
+                  })}
+
+                  {/* RIGHT FIXED TOTAL CELL */}
+                  <td className="p-3 border border-gray-700 sticky right-0 bg-[#1d2738] z-30 font-semibold text-cyan-300">
+                    ${rowTotal.toLocaleString()}
+                  </td>
+                </tr>
+              );
+            })}
+
+            {/* BOTTOM TOTAL ROW */}
+            <tr className="bg-[#0f172a] font-bold text-cyan-400 sticky bottom-0 z-40">
+              <td className="p-3 border border-gray-700 sticky left-0 bg-[#0f172a] z-40">
+                TOTAL
+              </td>
+
+              {dayTotals.map((total, i) => (
+                <td key={i} className="border border-gray-700 p-2 text-center">
+                  ${total.toLocaleString()}
+                </td>
+              ))}
+
+              {/* BOTTOM RIGHT GRAND TOTAL */}
+              <td className="p-3 border border-gray-700 sticky right-0 bg-[#0f172a] z-40 text-green-400">
+                ${grandTotal.toLocaleString()}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Save Button */}
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={handleSave}
+          className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-bold"
+        >
+          Save All
+        </button>
+      </div>
+
+      {isLoading && <p className="mt-4 text-gray-400">Loading data...</p>}
     </div>
   );
 };
