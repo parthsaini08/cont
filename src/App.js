@@ -21,6 +21,7 @@ import MarketingExpenseTable from "./components/marketing/MarketingExpenseTable"
 import ReportsPage from "./components/marketing/MarketingDashboard";
 import AgentPerformanceDashboard from "./components/AgentPerformanceDashboard";
 import ChargebackTracker from "./components/chargeback/ChargebackTracker";
+import AnalyticsDashboard from "./components/AnalyticsDashboard"; 
 
 function App() {
   const [data, setData] = useState({ stats: {}, calls: [] });
@@ -98,6 +99,19 @@ function App() {
               <div>
                 <DashboardHeader/>
                 <AdminPanel/> 
+                </div>}
+            />
+          }
+        />
+        <Route
+          path="/analytics-dashboard" 
+          element={
+            <ProtectedRoute
+              allowedRole="admin"
+              element={
+              <div>
+                <DashboardHeader/>
+                <AnalyticsDashboard />
                 </div>}
             />
           }

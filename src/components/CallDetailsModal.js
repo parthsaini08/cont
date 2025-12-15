@@ -75,6 +75,7 @@ const CallDetailsModal = ({ call, formData, onInputChange, onSave, onClose,userR
     "Flight status",
     "Lost baggage",
     "Blank Call",
+    "Wrong Number",
     "others"
   ];
 

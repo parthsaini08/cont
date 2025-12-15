@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, DollarSign, PhoneCall, RefreshCcw, BarChart3,FileBarChart,AlertTriangle} from "lucide-react";
+import { Users, DollarSign, PhoneCall, RefreshCcw, BarChart3,FileBarChart,AlertTriangle, LayoutDashboard} from "lucide-react";
 
 const AdminPanel = () => {
 const navigate = useNavigate();
@@ -75,6 +75,13 @@ const cards = [
   gradient: "from-red-500 to-rose-400",
   onClick: () => navigate("/chargeback"),
 },
+  {
+  title: "Analytics Dashboard",
+  desc: "View live performance metrics, top agents, campaigns, and expenses.",
+  icon: <LayoutDashboard size={30} />,
+  gradient: "from-cyan-500 to-blue-500",
+  onClick: () => navigate("/analytics-dashboard"),
+}
 
 ];
 
