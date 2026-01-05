@@ -42,10 +42,14 @@ const HeaderActions = ({
           onChange={(e) => onYearChange(Number(e.target.value))}
           className="bg-gray-800 border border-white text-white px-3 py-2 rounded-md"
         >
-          {Array.from({ length: 10 }, (_, i) => {
-            const year = new Date().getFullYear() + i;
-            return <option key={year}>{year}</option>;
-          })}
+          {Array.from({ length: 11 }, (_, i) => {
+          const year = 2025 + i;
+          return (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          );
+        })}
         </select>
 
         <div className="flex flex-wrap gap-2">

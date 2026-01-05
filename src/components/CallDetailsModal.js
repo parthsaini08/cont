@@ -319,6 +319,8 @@ const CallDetailsModal = ({ call, formData, onInputChange, onSave, onClose, user
                         "Auth- Maverick",
                         "NMI- PayCompass",
                         "Zelle",
+                        "Stripe",
+                        "Square",
                         "bank ACH/Wire",
                       ]}
                       onChange={(val) =>

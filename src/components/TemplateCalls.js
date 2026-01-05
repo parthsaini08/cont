@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import FilterPopup from "./FilterPopup";
 import CallSummaryTable from "./CallSummary";
-import { Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import AddCallModal from "./AddCallModal";
 
 
@@ -23,6 +23,9 @@ const TempCallsTable = () => {
   const [resultsPerPage, setResultsPerPage] = useState(20);
   const [extensions, setExtensions] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  
 
 
   // ✅ Get current NY time as ISO string format
@@ -65,6 +68,8 @@ const getNYYesterday = () => {
   // Return today's date at 12:00:00 AM NY time
   return `${parts.year}-${parts.month}-${parts.day}T00:00:00`;
 };
+
+  
 
 
 
@@ -110,7 +115,7 @@ const getNYYesterday = () => {
     "from_number",
     "start_time",
     "call_log_status",
-    "queue_name",
+    // "queue_name",
     "duration_ms",
     "converted",
     "mco",
@@ -130,11 +135,16 @@ useEffect(() => {
         setUserRole(json.user.role);
         setUserData(json.user); // ✅ store full user object
         console.log("Fetched user data:", json.user);
-        setVisibleColumns(
-          json.user.role === "user"
-            ? agentDefaultColumns
-            : allColumns.map((c) => c.key)
-        );
+        const isAdmin = json.user.role === "admin";
+
+const baseColumns = isAdmin
+  ? allColumns.map((c) => c.key)
+  : allColumns
+      .filter((c) => c.key !== "queue_name")
+      .map((c) => c.key);
+
+setVisibleColumns(baseColumns);
+
       } else {
         setUserRole("agent");
         setVisibleColumns(agentDefaultColumns);
@@ -147,6 +157,35 @@ useEffect(() => {
   fetchUser();
 }, []);
 
+// ✅ Handle click from CallSummaryTable (Queue / Agent drilldown)
+const handleSummaryClick = ({ type, value }) => {
+  if (!value) return;
+
+  setColumnFilters((prev) => {
+    const newFilters = { ...prev };
+
+    if (type === "queue") {
+      newFilters.queue_name = {
+        type: "multi",
+        values: [value],
+      };
+      delete newFilters.agent_name; // clear agent filter
+    }
+
+    if (type === "agent") {
+      newFilters.agent_name = {
+        type: "multi",
+        values: [value],
+      };
+      delete newFilters.queue_name; // clear queue filter
+    }
+
+    return newFilters;
+  });
+
+  setCurrentPage(1);
+};
+
 
   // Fetch calls with NY timezone dates
   useEffect(() => {
@@ -157,24 +196,26 @@ useEffect(() => {
         console.log("TemplateCalls - Fetching with dates:", dateRange);
         
 
-
-// Add 4 hours to an ISO string assumed to be UTC
-const addHoursUTC = (isoString, hours) => {
-  if (!isoString) return "";
-  // Append "Z" to treat it as UTC
-  const date = new Date(isoString.endsWith("Z") ? isoString : isoString + "Z");
-  date.setUTCHours(date.getUTCHours() + hours); // add hours in UTC
-  return date.toISOString(); // returns correct UTC ISO string
-};
+    // Add 4 hours to an ISO string assumed to be UTC
+    const addHoursUTC = (isoString, hours) => {
+      if (!isoString) return "";
+      // Append "Z" to treat it as UTC
+      const date = new Date(isoString.endsWith("Z") ? isoString : isoString + "Z");
+      date.setUTCHours(date.getUTCHours() + hours); // add hours in UTC
+      return date.toISOString(); // returns correct UTC ISO string
+    };
 
 const startDateAdjusted = addHoursUTC(dateRange.startDate, 5);
 const endDateAdjusted = addHoursUTC(dateRange.endDate, 5);
 console.log("Start date",dateRange.startDate,startDateAdjusted);
 console.log("End date",dateRange.endDate,endDateAdjusted);
 const res = await fetch(
-  `${BASE_URL}get_calls.php?startDate=${encodeURIComponent(startDateAdjusted)}&endDate=${encodeURIComponent(endDateAdjusted)}`,
+  `${BASE_URL}get_calls.php?startDate=${encodeURIComponent(startDateAdjusted)}
+   &endDate=${encodeURIComponent(endDateAdjusted)}
+   &search=${encodeURIComponent(globalSearch)}`,
   { credentials: "include" }
 );
+
 
         const json = await res.json();
 
@@ -194,7 +235,7 @@ const res = await fetch(
     };
 
     fetchCalls();
-  }, [dateRange, userRole]);
+  }, [dateRange, userRole, globalSearch]);
 
   const handleClearRow = async (call) => {
   if (!window.confirm("Are you sure you want to clear this call’s data?")) return;
@@ -282,7 +323,11 @@ const res = await fetch(
   const exportData = calls.map((call) => {
     const row = {};
     allColumns
-      .filter((c) => visibleColumns.includes(c.key))
+      .filter(
+        (c) =>
+          visibleColumns.includes(c.key) &&
+          (userRole === "admin" || c.key !== "queue_name")
+      )
       .forEach((col) => {
         if (col.key === "duration_ms") {
   if (call.duration_ms && call.duration_ms > 0) {
@@ -430,6 +475,8 @@ const formatDateInTimeZone = (date, timeZone = "Asia/Kolkata") => {
 
   return (
     <div className="p-4 text-gray-200">
+    
+
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-2 justify-end mb-4">
         <div className="relative">
@@ -510,7 +557,11 @@ const formatDateInTimeZone = (date, timeZone = "Asia/Kolkata") => {
 
       <div>
         {(userRole === "admin" || userRole === "lead" || userRole === "VJ") && (
-          <CallSummaryTable dateRange={dateRange} />
+          <CallSummaryTable
+  dateRange={dateRange}
+  onRowClick={handleSummaryClick}
+/>
+
         )}
       </div>
 
@@ -528,14 +579,35 @@ const formatDateInTimeZone = (date, timeZone = "Asia/Kolkata") => {
 
     
       <div className="bg-[#0f172a] rounded-lg shadow border border-gray-700 overflow-x-auto">
+      <div className="flex justify-between items-center border-b border-gray-700 pr-3">
         <h1 className="p-3 font-bold text-lg md:text-xl">
           Call Logs (New York Time)
         </h1>
+        <div className="flex items-right gap-2">
+        <input
+          type="text"
+          placeholder="Search name, number, agent, queue..."
+          value={searchInput}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+          }}
+          className="px-3 py-2 bg-[#1e293b] border border-gray-700 rounded text-sm w-full md:w-64"
+        />
+        <button className="text-white" onClick={(e) => {
+            setGlobalSearch(searchInput.trim());
+            setCurrentPage(1);
+          }}><Search className="p-1 border border-white rounded-md" /></button>
+        </div>
+</div>
         <table className="w-full min-w-max text-left border-collapse text-xs md:text-sm text-gray-300">
           <thead>
             <tr className="bg-[#1e293b] text-gray-300 uppercase text-[10px] md:text-xs tracking-wide">
               {allColumns
-                .filter((c) => visibleColumns.includes(c.key))
+                .filter(
+                  (c) =>
+                    visibleColumns.includes(c.key) &&
+                    (userRole === "admin" || c.key !== "queue_name")
+                )
                 .map((col) => {
                   const filterType = [
                     "queue_name",
@@ -584,7 +656,11 @@ const formatDateInTimeZone = (date, timeZone = "Asia/Kolkata") => {
                 className="border-b border-gray-700 hover:bg-[#1f2937] cursor-pointer"
               >
                {allColumns
-  .filter((c) => visibleColumns.includes(c.key))
+  .filter(
+    (c) =>
+      visibleColumns.includes(c.key) &&
+      (userRole === "admin" || c.key !== "queue_name")
+  )
   .map((col) => (
     <td key={col.key} className="p-2 md:p-3 whitespace-nowrap">
       {col.key === "duration_ms"
