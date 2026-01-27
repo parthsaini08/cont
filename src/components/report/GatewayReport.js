@@ -1,0 +1,241 @@
+import React, { useState } from "react";
+import DateTimeRangePicker from "../DateRangeFilter";
+import { BASE_URL } from "../../config";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
+const GatewayReport = () => {
+  const [period1, setPeriod1] = useState({ startDate: "", endDate: "" });
+  const [period2, setPeriod2] = useState({ startDate: "", endDate: "" });
+
+  const [compare, setCompare] = useState(false);
+  const [showP1, setShowP1] = useState(false);
+  const [showP2, setShowP2] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState([]);
+
+  /* =============================
+     Fetch helper
+  ============================= */
+  const fetchPeriod = async (period) => {
+    const params = new URLSearchParams({
+      startDate: period.startDate,
+      endDate: period.endDate,
+    });
+
+    const res = await fetch(
+      `${BASE_URL}/get_gateway_summary.php?${params.toString()}`,
+      { credentials: "include" }
+    );
+
+    const json = await res.json();
+    return Array.isArray(json.summary) ? json.summary : [];
+  };
+
+  /* =============================
+     Fetch & Compare
+  ============================= */
+  const fetchReport = async () => {
+    setLoading(true);
+
+    const p1 = await fetchPeriod(period1);
+    const p2 = compare ? await fetchPeriod(period2) : [];
+
+    const p2Index = {};
+    p2.forEach((r) => {
+      p2Index[r.gateway] = r;
+    });
+
+    const merged = p1.map((r1) => {
+      const r2 = p2Index[r1.gateway];
+
+      return {
+        gateway: r1.gateway,
+        period1: { mco: r1.MCO },
+        period2: r2 ? { mco: r2.MCO } : null,
+      };
+    });
+
+    setRows(merged);
+    setLoading(false);
+  };
+
+  /* =============================
+     Excel Export
+  ============================= */
+  const downloadExcel = () => {
+    const data = rows.map((r) => ({
+      Gateway: r.gateway,
+      "MCO (P1)": r.period1.mco,
+      ...(compare && r.period2
+        ? {
+            "MCO (P2)": r.period2.mco,
+            "Δ MCO": r.period2.mco - r.period1.mco,
+          }
+        : {}),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Gateway Comparison");
+
+    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    saveAs(new Blob([buffer]), "gateway-report.xlsx");
+  };
+
+  return (
+    <div className="min-h-[calc(100vh-64px)] p-6 bg-[#11182b] text-gray-200">
+      <h2 className="text-2xl font-semibold mb-4 text-white">
+        Gateway Comparison Report
+      </h2>
+
+      {/* FILTER BAR */}
+      <div className="bg-[#11182b] border border-gray-700 rounded-xl p-4 mb-6 flex gap-4 flex-wrap items-center">
+        <button
+          onClick={() => setShowP1(true)}
+          className="px-4 py-2 bg-[#1f2a48] rounded-md border border-gray-700"
+        >
+         { period1.startDate && period1.endDate
+            ? `${new Date(period1.startDate).toLocaleDateString()} - ${new Date(
+                period1.endDate
+              ).toLocaleDateString()}`
+            : "Period 1"}
+        </button>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={compare}
+            onChange={(e) => setCompare(e.target.checked)}
+          />
+          Compare
+        </label>
+
+        {compare && (
+          <button
+            onClick={() => setShowP2(true)}
+            className="px-4 py-2 bg-[#1f2a48] rounded-md border border-gray-700"
+          >
+            {period2.startDate && period2.endDate
+              ? `${new Date(period2.startDate).toLocaleDateString()} - ${new Date(
+                  period2.endDate
+                ).toLocaleDateString()}`
+              : "Period 2"}
+          </button>
+        )}
+
+        <button
+          onClick={fetchReport}
+          disabled={!period1.startDate || !period1.endDate}
+          className="px-4 py-2 bg-cyan-600 text-black rounded-md disabled:opacity-50"
+        >
+          Apply
+        </button>
+
+        <button
+          onClick={downloadExcel}
+          disabled={!rows.length}
+          className="px-4 py-2 bg-emerald-600 text-black rounded-md disabled:opacity-50"
+        >
+          Download Excel
+        </button>
+      </div>
+
+      {/* TABLE */}
+      <div className="bg-[#11182b] border border-gray-700 rounded-xl overflow-hidden">
+        {loading ? (
+          <div className="p-6 text-center text-gray-400">Loading…</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-[#1a2337]">
+              <tr>
+                <th className="p-3 text-left">Gateway</th>
+                <th className="p-3">MCO (P1)</th>
+                {compare && (
+                  <>
+                    <th className="p-3">MCO (P2)</th>
+                    <th className="p-3">Δ MCO</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr
+                  key={`${r.gateway}-${i}`}
+                  className="border-t border-gray-800 hover:bg-[#1f2a48]"
+                >
+                  <td className="p-3">{r.gateway}</td>
+                  <td className="p-3 text-center text-cyan-400 font-semibold">
+                    {r.period1.mco.toFixed(2)}
+                  </td>
+
+                  {compare && r.period2 && (
+                    <>
+                      <td className="p-3 text-center text-cyan-400 font-semibold">
+                        {r.period2.mco.toFixed(2)}
+                      </td>
+                      <td
+                        className={`p-3 text-center font-semibold ${
+                          r.period2.mco - r.period1.mco >= 0
+                            ? "text-emerald-400"
+                            : "text-red-400"
+                        }`}
+                      >
+                        {((r.period2.mco - r.period1.mco)/r.period1.mco*100).toFixed(2)}%
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* MODALS */}
+      {showP1 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowP1(false)}
+          />
+          <div className="relative z-10">
+            <DateTimeRangePicker
+              initialStartDate={period1.startDate}
+              initialEndDate={period1.endDate}
+              onApply={(r) => {
+                setPeriod1(r);
+                setShowP1(false);
+              }}
+              onCancel={() => setShowP1(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {showP2 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowP2(false)}
+          />
+          <div className="relative z-10">
+            <DateTimeRangePicker
+              initialStartDate={period2.startDate}
+              initialEndDate={period2.endDate}
+              onApply={(r) => {
+                setPeriod2(r);
+                setShowP2(false);
+              }}
+              onCancel={() => setShowP2(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default GatewayReport;

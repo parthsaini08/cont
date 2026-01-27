@@ -22,6 +22,11 @@ import ReportsPage from "./components/marketing/MarketingDashboard";
 import AgentPerformanceDashboard from "./components/AgentPerformanceDashboard";
 import ChargebackTracker from "./components/chargeback/ChargebackTracker";
 import AnalyticsDashboard from "./components/AnalyticsDashboard"; 
+import AgentReport from "./components/report/AgentReport";
+import QueueReport from "./components/report/QueueReport";
+import GatewayReport from "./components/report/GatewayReport";
+import ChargebackReport from "./components/report/ChargebackReport";
+import MonthlyMcoReport from "./components/report/MonthyReport";
 
 function App() {
   const [data, setData] = useState({ stats: {}, calls: [] });
@@ -90,6 +95,16 @@ function App() {
                 <MarketingCost />
               </div>} 
               />}/>
+        <Route path="/reports/monthly-mco" element={
+          <ProtectedRoute
+              allowedRole="admin"
+              element={
+              <div>
+                <DashboardHeader/>
+                <MonthlyMcoReport />
+                </div>}
+            />
+        } />
         <Route
           path="/admin" 
           element={
@@ -125,6 +140,58 @@ function App() {
                <div>
                 <DashboardHeader/>
                 <AdminPage />
+                </div>}
+            />
+          }
+        />
+        <Route
+          path="/agent-report" 
+          element={
+            <ProtectedRoute
+              allowedRole="admin"
+              element={
+              <div>
+                <DashboardHeader/>
+                <AgentReport />
+                </div>}
+            />
+          }
+        />
+        <Route
+          path="/queue-report" 
+          element={
+            <ProtectedRoute
+              allowedRole="admin"
+              element={
+              <div>
+                <DashboardHeader/>
+                <QueueReport />
+                </div>}
+            />
+          }
+        />
+        <Route
+          path="/gateway-report" 
+          element={
+            <ProtectedRoute
+              allowedRole="admin"
+              element={
+              <div>
+                <DashboardHeader/>
+                <GatewayReport />
+                </div>}
+            />
+          }
+        />
+        <Route
+          path="/chargeback-report" 
+          element={
+            <ProtectedRoute
+              allowedRole="admin"
+              element={
+              <div>
+                <DashboardHeader/>
+                <ChargebackReport />
                 </div>}
             />
           }

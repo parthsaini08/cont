@@ -6,22 +6,19 @@ header("Content-Type: application/json");
 header("Access-Control-Allow-Credentials: true");
 
 ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once "db.php";
-
 session_start();
 
 $pdo = getDBConnection();
 
-// ✅ must be logged in
+/* ================= AUTH ================= */
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['status' => 'error', 'message' => 'Not logged in']);
     exit;
 }
 
-// fetch logged-in user
 $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -31,68 +28,87 @@ if (!$user) {
     exit;
 }
 
-$role = $user['role'];
+$role            = $user['role'];
 $agent_extension = $user['agent_extension'];
-$lead_extension = $user['lead_extension'];
+$lead_extension  = $user['lead_extension'];
 
-// ✅ Get date filters from query params (ISO format from frontend)
-$startDate = isset($_GET['startDate']) ? $_GET['startDate'] : null;
-$endDate = isset($_GET['endDate']) ? $_GET['endDate'] : null;
+/* ================= INPUTS ================= */
+$startDate = $_GET['startDate'] ?? null;
+$endDate   = $_GET['endDate'] ?? null;
+$search    = trim($_GET['search'] ?? '');
 
-$dateFilter = "";
+$where  = [];
 $params = [];
 
-// ✅ If both start and end dates provided, filter by them
-// Get calls if there are calls on the API's
-if ($startDate && $endDate) {
-    $dateFilter = " AND start_time BETWEEN :start AND :end ";
-    $params['start'] = $startDate;
-    $params['end'] = $endDate;
+/* ================= GLOBAL SEARCH ================= */
+/*
+  🔥 RULE:
+  - If search is present → IGNORE date filters
+  - If search is empty → apply date filters
+*/
+if ($search !== '') {
+    $where[] = "(
+        from_name LIKE :search
+        OR from_number LIKE :search
+        OR to_number LIKE :search
+        OR agent_name LIKE :search
+        OR queue_name LIKE :search
+        OR booking_number LIKE :search
+        OR notes LIKE :search
+        OR call_log_status LIKE :search
+    )";
+    $params['search'] = "%$search%";
+} else {
+    if ($startDate && $endDate) {
+        $where[] = "start_time BETWEEN :start AND :end";
+        $params['start'] = $startDate;
+        $params['end']   = $endDate;
+    }
 }
 
-if ($role === 'admin') {
-    $sql = "SELECT * FROM ringcentral_calls 
-            WHERE direction = 'Inbound' 
-            $dateFilter 
-            ORDER BY start_time DESC";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params); 
+/* ================= BASE CONDITION ================= */
+$where[] = "direction = 'Inbound'";
 
+/* ================= ROLE FILTERS ================= */
+if ($role === 'admin') {
+    // no extra filter
 }
 elseif ($role === 'VJ') {
-     $sql = "SELECT * FROM ringcentral_calls 
-            WHERE (queue_name LIKE :queuePrefix OR queue_name = 'PA102' OR queue_name LIKE :bhPrefix) AND direction = 'Inbound' 
-            $dateFilter 
-            ORDER BY start_time DESC";
-
-    $params['queuePrefix']='VJ%';
-    $params['bhPrefix']='BH%';
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    $where[] = "(queue_name LIKE :queueVJ OR queue_name = 'PA102' OR queue_name LIKE :queueBH')";
+    $params['queueVJ'] = '%VJ%';
+    $params['queueBH'] = '%BH%';
 }
 elseif ($role === 'lead') {
-    $sql = "SELECT * FROM ringcentral_calls 
-            WHERE direction = 'Inbound'
-              AND (agent_extension COLLATE utf8mb4_general_ci = :lead 
-                   OR agent_extension IN (
-                        SELECT agent_extension COLLATE utf8mb4_general_ci
-                        FROM users 
-                        WHERE lead_extension COLLATE utf8mb4_general_ci = :lead
-                   ))
-              $dateFilter
-            ORDER BY start_time DESC";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge(['lead' => $agent_extension], $params));
-
-} else {
-    $sql = "SELECT * FROM ringcentral_calls 
-            WHERE direction = 'Inbound'
-              AND agent_extension = :agent 
-              $dateFilter
-            ORDER BY start_time DESC";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge(['agent' => $agent_extension], $params));
+    $where[] = "(
+        agent_extension COLLATE utf8mb4_general_ci = :lead
+        OR agent_extension IN (
+            SELECT agent_extension COLLATE utf8mb4_general_ci
+            FROM users
+            WHERE lead_extension COLLATE utf8mb4_general_ci = :lead
+        )
+    )";
+    $params['lead'] = $agent_extension;
+}
+else {
+    $where[] = "agent_extension = :agent";
+    $params['agent'] = $agent_extension;
 }
 
+/* ================= FINAL QUERY ================= */
+$sql = "
+    SELECT *
+    FROM ringcentral_calls
+    WHERE " . implode(" AND ", $where) . "
+    ORDER BY start_time DESC
+    LIMIT 2000
+";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+
 $calls = $stmt->fetchAll(PDO::FETCH_ASSOC);
-echo json_encode(['status' => 'success', 'calls' => $calls]);
+
+echo json_encode([
+    'status' => 'success',
+    'calls'  => $calls
+]);
