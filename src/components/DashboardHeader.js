@@ -100,7 +100,7 @@ const DashboardHeader = () => {
                 <button
                   key={i}
                   onClick={() => navigate(card.to)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm border transition
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs border transition
                     ${
                       active
                         ? "text-cyan-400 border-cyan-600 bg-[#1a2337]"

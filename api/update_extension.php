@@ -1,14 +1,12 @@
 <?php
-require "./../vendor/autoload.php";
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
-$dotenv->load();
+require "./vendor/autoload.php";
+
 
 $rcsdk = new RingCentral\SDK\SDK(
-    $_ENV["RC_CLIENT_ID"],
-    $_ENV["RC_CLIENT_SECRET"],
-    $_ENV["RC_SERVER_URL"]
+    "8qIqz0kMjXVcyFxA8WZcLY",
+   "ANk4Gfekw5te3p1a5b0RdNegq16AAHQk7fMYtlQdXK75",
+    "https://platform.ringcentral.com"
 );
-
 $platform = $rcsdk->platform();
 
 try {

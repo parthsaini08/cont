@@ -27,6 +27,9 @@ import QueueReport from "./components/report/QueueReport";
 import GatewayReport from "./components/report/GatewayReport";
 import ChargebackReport from "./components/report/ChargebackReport";
 import MonthlyMcoReport from "./components/report/MonthyReport";
+import AgentTimelineDashboard from "./components/AgentTimeline";
+import AgentStatusDrawer from "./components/AgentStatusDrawer";
+import AgentOperationsDashboard from "./components/AgentOperationsDashboard";
 
 function App() {
   const [data, setData] = useState({ stats: {}, calls: [] });
@@ -102,6 +105,16 @@ function App() {
               <div>
                 <DashboardHeader/>
                 <MonthlyMcoReport />
+                </div>}
+            />
+        } />
+        <Route path="/live-agent-report" element={
+          <ProtectedRoute
+              allowedRole="admin"
+              element={
+              <div>
+                <DashboardHeader/>
+               <AgentTimelineDashboard />
                 </div>}
             />
         } />
@@ -209,23 +222,26 @@ function App() {
             />
           }
         />
-        <Route path="/call-logs" element={
-            <div className="flex flex-col min-h-screen bg-primary text-gray-100">
-                <DashboardHeader />
-                {/* <div className="hidden md:block">
-            <Sidebar /></div> */}
-              <main className="flex-1 p-6">
-                {/* <h1 className="text-2xl font-bold text-secondary">📊 Call Dashboard</h1> */}
-                <div className="">
-                  <AgentPerformanceDashboard />
-                </div>
-                <div>
-                  
-                </div>
-                <TempCallsTable />
-              </main>
-            </div>
-          } />
+        <Route
+  path="/call-logs"
+  element={
+    <div className="flex flex-col min-h-screen bg-primary text-gray-100 relative">
+      <DashboardHeader />
+
+      <main className="flex-1 p-6">
+        <div>
+          <AgentPerformanceDashboard />
+        </div>
+
+        <TempCallsTable />
+      </main>
+
+      {/* ✅ Add drawer HERE */}
+      <AgentStatusDrawer />
+    </div>
+  }
+/>
+
         <Route
           path="/"
           element={
@@ -239,6 +255,16 @@ function App() {
         <Route path="/analytics" element={<CallDashboard />}/>
         <Route path="/marketing-expense-table" element={<ReportsPage />}/>
         <Route path="/reports" element={<ReportsPage />}/>
+        
+        <Route path="/agent-operations-dashboard" element={
+          user && user.name === "Gwen Parker" && (
+              <div>
+                <DashboardHeader/>
+                <AgentOperationsDashboard />
+                </div>
+            )
+          } />
+        
       </Routes>
     </Router>
   );
